@@ -1,0 +1,28 @@
+{
+  "name": "vesting-distribution-sheesha",
+  "version": "1.0.0",
+  "description": "",
+  "main": "truffle-config.js",
+  "scripts": {
+    "compile": "truffle compile",
+    "coverage": "npx truffle run coverage --solcoverjs ./.solcover.js --network coverage",
+    "test": "truffle test",
+    "prettier": "prettier --write 'contracts/**/*.sol'"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^3.3.0"
+  },
+  "devDependencies": {
+    "@openzeppelin/test-helpers": "^0.5.11",
+    "chai-as-promised": "^7.1.1",
+    "chai": "^4.3.4",
+    "decimal.js": "^10.2.1",
+    "dotenv": "^8.2.0",
+    "eth-crypto": "^1.9.0",
+    "ganache-time-traveler": "^1.0.15",
+    "prettier-plugin-solidity": "^1.0.0-beta.9",
+    "solidity-coverage": "^0.7.16",
+    "truffle-hdwallet-provider": "^1.0.17",
+    "truffle-plugin-verify": "^0.5.7"
+  }
+}
