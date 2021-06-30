@@ -85,6 +85,7 @@ contract BaseVesting is Ownable {
     ) public returns (bool) {
         bytes32 message = keccak256(
             abi.encodePacked(
+                address(this),
                 addr,
                 portionLP,
                 portionNative,

@@ -124,6 +124,7 @@ contract("RoyaleFinance", function (accounts) {
             RF = royaleFinance.address;
             await rewardToken.transfer(RF, ether("3000"));
             let message = EthCrypto.hash.keccak256([
+                { type: "address", value: RF },
                 { type: "address", value: beneficiary1 },
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
@@ -146,6 +147,7 @@ contract("RoyaleFinance", function (accounts) {
 
         it('should withdraw rewards before vesting ends correctly', async () => {
             let message = EthCrypto.hash.keccak256([
+                { type: "address", value: RF },
                 { type: "address", value: beneficiary1 },
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
@@ -180,6 +182,7 @@ contract("RoyaleFinance", function (accounts) {
 
         it('should withdraw rewards after vesting duration correctly', async () => {
             let message = EthCrypto.hash.keccak256([
+                { type: "address", value: RF },
                 { type: "address", value: beneficiary1 },
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
@@ -209,6 +212,7 @@ contract("RoyaleFinance", function (accounts) {
 
         it('shouldn\'t withdraw rewards with wrong signature', async () => {
             let message = EthCrypto.hash.keccak256([
+                { type: "address", value: RF },
                 { type: "address", value: beneficiary1 },
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
@@ -231,6 +235,7 @@ contract("RoyaleFinance", function (accounts) {
 
         it('shouldn\'t withdraw rewards with one signature twice', async () => {
             let message = EthCrypto.hash.keccak256([
+                { type: "address", value: RF },
                 { type: "address", value: beneficiary1 },
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
@@ -266,6 +271,7 @@ contract("RoyaleFinance", function (accounts) {
             const newSigner = EthCrypto.createIdentity();
             await royaleFinance.changeSignerList(newSigner.address, true);
             let message = EthCrypto.hash.keccak256([
+                { type: "address", value: RF },
                 { type: "address", value: beneficiary1 },
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
@@ -294,6 +300,7 @@ contract("RoyaleFinance", function (accounts) {
 
         it('shouldn\'t user reward be greater than 100%', async () => {
             let message = EthCrypto.hash.keccak256([
+                { type: "address", value: RF },
                 { type: "address", value: beneficiary1 },
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
@@ -316,6 +323,7 @@ contract("RoyaleFinance", function (accounts) {
 
         it('shouldn\'t user reward be greater than contract balance', async () => {
             let message = EthCrypto.hash.keccak256([
+                { type: "address", value: RF },
                 { type: "address", value: beneficiary1 },
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
@@ -335,6 +343,7 @@ contract("RoyaleFinance", function (accounts) {
             expectEvent(result, "RewardPaid", { investor: beneficiary1, amount: ether("300") })
 
             message = EthCrypto.hash.keccak256([
+                { type: "address", value: RF },
                 { type: "address", value: beneficiary2 },
                 { type: "uint256", value: highPercentageLP },
                 { type: "uint256", value: highPercentageNative },
