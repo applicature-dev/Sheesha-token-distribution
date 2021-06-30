@@ -45,7 +45,7 @@ contract("Mozik", function (accounts) {
 
     beforeEach(async function () {
         rewardToken = await MockErc20.new(ether("12000"), { from: owner });
-        mozik = await Mozik.new(identity.address, rewardToken.address, startDate, ether("12000"));
+        mozik = await Mozik.new(identity.address, rewardToken.address, startDate, vestingDuration, tgePercentage, ether("12000"));
         M = mozik.address;
         await rewardToken.transfer(M, ether("12000"));
     });
@@ -60,7 +60,7 @@ contract("Mozik", function (accounts) {
         });
 
         it("should initialize vesting with correct duration", async () => {
-            (await mozik.VESTING_DURATION()).should.be.bignumber.equal(vestingDuration.toString());
+            (await mozik.vestingDuration()).should.be.bignumber.equal(vestingDuration.toString());
         });
 
         it("should initialize vesting with correct total time", async () => {
@@ -68,11 +68,11 @@ contract("Mozik", function (accounts) {
         });
 
         it("should initialize vesting with correct tge percentage", async () => {
-            (await mozik.TGE_Percentage()).should.be.bignumber.equal(tgePercentage);
+            (await mozik.tgePercentage()).should.be.bignumber.equal(tgePercentage);
         });
 
         it("should initialize vesting with correct remaining percentage", async () => {
-            (await mozik.REMAINING_PERCENTAGE()).should.be.bignumber.equal(remeaningPercentage);
+            (await mozik.remainingPercentage()).should.be.bignumber.equal(remeaningPercentage);
         });
 
         it("should initialize vesting with correct monthly percentage", async () => {
@@ -81,28 +81,42 @@ contract("Mozik", function (accounts) {
 
         it("shouldn\'t initialize vesting with empty signer address", async () => {
             await expectRevert(
-                Mozik.new(constants.ZERO_ADDRESS, rewardToken.address, startDate, ether("12000")),
+                Mozik.new(constants.ZERO_ADDRESS, rewardToken.address, startDate, vestingDuration, tgePercentage, ether("12000")),
                 "Invalid signer address"
             );
         });
 
         it("shouldn\'t initialize vesting with empty reward token address", async () => {
             await expectRevert(
-                Mozik.new(identity.address, constants.ZERO_ADDRESS, startDate, ether("12000")),
+                Mozik.new(identity.address, constants.ZERO_ADDRESS, startDate, vestingDuration, tgePercentage, ether("12000")),
                 "Invalid reward token address"
             );
         });
 
         it("shouldn\'t initialize vesting with empty tge timestamp", async () => {
             await expectRevert(
-                Mozik.new(identity.address, rewardToken.address, 0, ether("12000")),
+                Mozik.new(identity.address, rewardToken.address, 0, vestingDuration, tgePercentage, ether("12000")),
                 "TGE timestamp can't be 0"
+            );
+        });
+
+        it("shouldn\'t initialize vesting with empty vesting duration", async () => {
+            await expectRevert(
+                Mozik.new(identity.address, rewardToken.address, startDate, 0, tgePercentage, ether("9000")),
+                "The vesting duration and tgePercentage cannot be 0"
+            );
+        });
+
+        it("shouldn\'t initialize vesting with empty tge tpercentage", async () => {
+            await expectRevert(
+                Mozik.new(identity.address, rewardToken.address, startDate, vestingDuration, ether("0"), ether("9000")),
+                "The vesting duration and tgePercentage cannot be 0"
             );
         });
 
         it("shouldn\'t initialize vesting with zero token rewards", async () => {
             await expectRevert(
-                Mozik.new(identity.address, rewardToken.address, startDate, ether("0")),
+                Mozik.new(identity.address, rewardToken.address, startDate, vestingDuration, tgePercentage, ether("0")),
                 "The number of tokens for distribution cannot be 0"
             );
         });
@@ -123,7 +137,7 @@ contract("Mozik", function (accounts) {
         it('shouldn\'t withdraw rewards before start date', async () => {
             startDateNew = startDate + vestingDuration;
             rewardToken = await MockErc20.new(ether("3000"), { from: owner });
-            mozik = await Mozik.new(identity.address, rewardToken.address, startDateNew, ether("3000"));
+            mozik = await Mozik.new(identity.address, rewardToken.address, startDateNew, vestingDuration, tgePercentage, ether("3000"));
             M = mozik.address;
             await rewardToken.transfer(M, ether("3000"));
             let message = EthCrypto.hash.keccak256([
@@ -188,6 +202,17 @@ contract("Mozik", function (accounts) {
             (await rewardToken.balanceOf(beneficiary1)).should.be.bignumber.at.most(ether("866.6667"));
             (await rewardToken.balanceOf(beneficiary1)).should.be.bignumber.at.least(ether("866.6666"));
             expectEvent(result, "RewardPaid", { investor: beneficiary1 })
+        });
+
+        it('should return reward balance correctly', async () => {
+            actual = await mozik.getRewardBalance(
+                beneficiary1,
+                percentageLp,
+                percentageNative,
+                { from: beneficiary1 }
+            );
+            (actual).should.be.bignumber.at.most(ether("866.6667"));
+            (actual).should.be.bignumber.at.least(ether("866.6666"));
         });
 
         it('should withdraw rewards after vesting duration correctly', async () => {
@@ -365,7 +390,7 @@ contract("Mozik", function (accounts) {
             amount = ether("1000");
             erc20 = await MockErc20.new(ether("3000"), { from: beneficiary1 });
             await erc20.transfer(M, amount, { from: beneficiary1 });
-            await mozik.withdrawERC20(erc20.address, amount);
+            await mozik.emergencyTokenWithdraw(erc20.address, amount);
             (await erc20.balanceOf(owner)).should.be.bignumber.equal(ether("1000"));
         });
 
@@ -374,7 +399,7 @@ contract("Mozik", function (accounts) {
             erc20 = await MockErc20.new(ether("3000"), { from: beneficiary1 });
             await erc20.transfer(M, amount, { from: beneficiary1 });
             await expectRevert(
-                mozik.withdrawERC20(erc20.address, ether("3000")),
+                mozik.emergencyTokenWithdraw(erc20.address, ether("3000")),
                 "Insufficient tokens balance"
             );
         });

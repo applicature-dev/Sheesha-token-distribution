@@ -44,7 +44,7 @@ contract("RoyaleFinance", function (accounts) {
 
     beforeEach(async function () {
         rewardToken = await MockErc20.new(ether("3000"), { from: owner });
-        royaleFinance = await RoyaleFinance.new(identity.address, rewardToken.address, startDate, ether("3000"));
+        royaleFinance = await RoyaleFinance.new(identity.address, rewardToken.address, startDate, vestingDuration, ether("3000"));
         RF = royaleFinance.address;
         await rewardToken.transfer(RF, ether("3000"));
     });
@@ -59,7 +59,7 @@ contract("RoyaleFinance", function (accounts) {
         });
 
         it("should initialize vesting with correct duration", async () => {
-            (await royaleFinance.VESTING_DURATION()).should.be.bignumber.equal(vestingDuration.toString());
+            (await royaleFinance.vestingDuration()).should.be.bignumber.equal(vestingDuration.toString());
         });
 
         it("should initialize vesting with correct total time", async () => {
@@ -72,28 +72,35 @@ contract("RoyaleFinance", function (accounts) {
 
         it("shouldn\'t initialize vesting with empty signer address", async () => {
             await expectRevert(
-                RoyaleFinance.new(constants.ZERO_ADDRESS, rewardToken.address, startDate, ether("3000")),
+                RoyaleFinance.new(constants.ZERO_ADDRESS, rewardToken.address, startDate, vestingDuration, ether("3000")),
                 "Invalid signer address"
             );
         });
 
         it("shouldn\'t initialize vesting with empty reward token address", async () => {
             await expectRevert(
-                RoyaleFinance.new(identity.address, constants.ZERO_ADDRESS, startDate, ether("3000")),
+                RoyaleFinance.new(identity.address, constants.ZERO_ADDRESS, startDate, vestingDuration, ether("3000")),
                 "Invalid reward token address"
             );
         });
 
         it("shouldn\'t initialize vesting with empty tge timestamp", async () => {
             await expectRevert(
-                RoyaleFinance.new(identity.address, rewardToken.address, 0, ether("3000")),
+                RoyaleFinance.new(identity.address, rewardToken.address, 0, vestingDuration, ether("3000")),
                 "TGE timestamp can't be 0"
+            );
+        });
+
+        it("shouldn\'t initialize vesting with empty vesting duration", async () => {
+            await expectRevert(
+                RoyaleFinance.new(identity.address, rewardToken.address, startDate, 0, ether("3000")),
+                "The vesting duration cannot be 0"
             );
         });
 
         it("shouldn\'t initialize vesting with zero token rewards", async () => {
             await expectRevert(
-                RoyaleFinance.new(identity.address, rewardToken.address, startDate, ether("0")),
+                RoyaleFinance.new(identity.address, rewardToken.address, startDate, vestingDuration, ether("0")),
                 "The number of tokens for distribution cannot be 0"
             );
         });
@@ -113,7 +120,7 @@ contract("RoyaleFinance", function (accounts) {
         it('shouldn\'t withdraw rewards before start date', async () => {
             startDateNew = startDate + vestingDuration;
             rewardToken = await MockErc20.new(ether("3000"), { from: owner });
-            royaleFinance = await RoyaleFinance.new(identity.address, rewardToken.address, startDateNew, ether("3000"));
+            royaleFinance = await RoyaleFinance.new(identity.address, rewardToken.address, startDateNew, vestingDuration, ether("3000"));
             RF = royaleFinance.address;
             await rewardToken.transfer(RF, ether("3000"));
             let message = EthCrypto.hash.keccak256([
@@ -160,6 +167,17 @@ contract("RoyaleFinance", function (accounts) {
             expectEvent(result, "RewardPaid", { investor: beneficiary1 })
         });
 
+        it('should return reward balance correctly', async () => {
+            actual = await royaleFinance.getRewardBalance(
+                beneficiary1,
+                percentageLp,
+                percentageNative,
+                { from: beneficiary1 }
+            );
+            (actual).should.be.bignumber.at.most(ether("150"));
+            (actual).should.be.bignumber.at.least(ether("149.9999"));
+        });
+
         it('should withdraw rewards after vesting duration correctly', async () => {
             let message = EthCrypto.hash.keccak256([
                 { type: "address", value: beneficiary1 },
@@ -179,7 +197,14 @@ contract("RoyaleFinance", function (accounts) {
                 { from: beneficiary1 }
             );
             (await rewardToken.balanceOf(beneficiary1)).should.be.bignumber.equal(ether("300"));
-            expectEvent(result, "RewardPaid", { investor: beneficiary1, amount: ether("300") })
+            expectEvent(result, "RewardPaid", { investor: beneficiary1, amount: ether("300") });
+            reward = await royaleFinance.getRewardBalance(
+                beneficiary1,
+                percentageLp,
+                percentageNative,
+                { from: beneficiary1 }
+            );
+            reward.should.be.bignumber.equal(ether("0"));
         });
 
         it('shouldn\'t withdraw rewards with wrong signature', async () => {
@@ -328,13 +353,20 @@ contract("RoyaleFinance", function (accounts) {
                 ),
                 "The rewards are over"
             );
+            reward = await royaleFinance.getRewardBalance(
+                beneficiary2,
+                highPercentageLP,
+                highPercentageNative,
+                { from: beneficiary2 }
+            );
+            reward.should.be.bignumber.equal(ether("0"));
         });
 
         it('should withdraw any erc20 send accidentally to the contract', async () => {
             amount = ether("1000");
             erc20 = await MockErc20.new(ether("3000"), { from: beneficiary1 });
             await erc20.transfer(RF, amount, { from: beneficiary1 });
-            await royaleFinance.withdrawERC20(erc20.address, amount);
+            await royaleFinance.emergencyTokenWithdraw(erc20.address, amount);
             (await erc20.balanceOf(owner)).should.be.bignumber.equal(ether("1000"));
         });
 
@@ -343,7 +375,7 @@ contract("RoyaleFinance", function (accounts) {
             erc20 = await MockErc20.new(ether("3000"), { from: beneficiary1 });
             await erc20.transfer(RF, amount, { from: beneficiary1 });
             await expectRevert(
-                royaleFinance.withdrawERC20(erc20.address, ether("3000")),
+                royaleFinance.emergencyTokenWithdraw(erc20.address, ether("3000")),
                 "Insufficient tokens balance"
             );
         });

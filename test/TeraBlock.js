@@ -47,7 +47,7 @@ contract("TeraBlock", function (accounts) {
 
     beforeEach(async function () {
         rewardToken = await MockErc20.new(ether("9000"), { from: owner });
-        teraBlock = await TeraBlock.new(identity.address, rewardToken.address, startDate, ether("9000"));
+        teraBlock = await TeraBlock.new(identity.address, rewardToken.address, startDate, cliffDuration, vestingDuration, tgePercentage, ether("9000"));
         TB = teraBlock.address;
         await rewardToken.transfer(TB, ether("9000"));
     });
@@ -62,11 +62,11 @@ contract("TeraBlock", function (accounts) {
         });
 
         it("should initialize vesting with correct cliff", async () => {
-            (await teraBlock.CLIFF_DURATION()).should.be.bignumber.equal(cliffDuration.toString());
+            (await teraBlock.cliffDuration()).should.be.bignumber.equal(cliffDuration.toString());
         });
 
         it("should initialize vesting with correct duration", async () => {
-            (await teraBlock.VESTING_DURATION()).should.be.bignumber.equal(vestingDuration.toString());
+            (await teraBlock.vestingDuration()).should.be.bignumber.equal(vestingDuration.toString());
         });
 
         it("should initialize vesting with correct first release date", async () => {
@@ -78,11 +78,11 @@ contract("TeraBlock", function (accounts) {
         });
 
         it("should initialize vesting with correct tge percentage", async () => {
-            (await teraBlock.TGE_Percentage()).should.be.bignumber.equal(tgePercentage);
+            (await teraBlock.tgePercentage()).should.be.bignumber.equal(tgePercentage);
         });
 
         it("should initialize vesting with correct remaining percentage", async () => {
-            (await teraBlock.REMAINING_PERCENTAGE()).should.be.bignumber.equal(ether("90"));
+            (await teraBlock.remainingPercentage()).should.be.bignumber.equal(ether("90"));
         });
 
         it("should initialize vesting with correct monthly percentage", async () => {
@@ -91,28 +91,47 @@ contract("TeraBlock", function (accounts) {
 
         it("shouldn\'t initialize vesting with empty signer address", async () => {
             await expectRevert(
-                TeraBlock.new(constants.ZERO_ADDRESS, rewardToken.address, startDate, ether("9000")),
+                TeraBlock.new(constants.ZERO_ADDRESS, rewardToken.address, startDate, cliffDuration, vestingDuration, tgePercentage, ether("9000")),
                 "Invalid signer address"
             );
         });
 
         it("shouldn\'t initialize vesting with empty reward token address", async () => {
             await expectRevert(
-                TeraBlock.new(identity.address, constants.ZERO_ADDRESS, startDate, ether("9000")),
+                TeraBlock.new(identity.address, constants.ZERO_ADDRESS, startDate, cliffDuration, vestingDuration, tgePercentage, ether("9000")),
                 "Invalid reward token address"
             );
         });
 
         it("shouldn\'t initialize vesting with empty tge timestamp", async () => {
             await expectRevert(
-                TeraBlock.new(identity.address, rewardToken.address, 0, ether("9000")),
+                TeraBlock.new(identity.address, rewardToken.address, 0, cliffDuration, vestingDuration, tgePercentage, ether("9000")),
                 "TGE timestamp can't be 0"
+            );
+        });
+
+        it("shouldn\'t initialize vesting with empty cliff/vesting duration", async () => {
+            await expectRevert(
+                TeraBlock.new(identity.address, rewardToken.address, startDate, 0, vestingDuration, tgePercentage, ether("9000")),
+                "The vesting and cliff duration cannot be 0"
+            );
+
+            await expectRevert(
+                TeraBlock.new(identity.address, rewardToken.address, startDate, cliffDuration, 0, tgePercentage, ether("9000")),
+                "The vesting and cliff duration cannot be 0"
+            );
+        });
+
+        it("shouldn\'t initialize vesting with empty tge tpercentage", async () => {
+            await expectRevert(
+                TeraBlock.new(identity.address, rewardToken.address, startDate, cliffDuration, vestingDuration, ether("0"), ether("9000")),
+                "The tgePercentage cannot be 0"
             );
         });
 
         it("shouldn\'t initialize vesting with zero token rewards", async () => {
             await expectRevert(
-                TeraBlock.new(identity.address, rewardToken.address, startDate, ether("0")),
+                TeraBlock.new(identity.address, rewardToken.address, startDate, cliffDuration, vestingDuration, tgePercentage, ether("0")),
                 "The number of tokens for distribution cannot be 0"
             );
         });
@@ -133,7 +152,7 @@ contract("TeraBlock", function (accounts) {
         it('shouldn\'t withdraw rewards before start date', async () => {
             startDateNew = startDate + vestingDuration;
             rewardToken = await MockErc20.new(ether("3000"), { from: owner });
-            teraBlock = await TeraBlock.new(identity.address, rewardToken.address, startDateNew, ether("3000"));
+            teraBlock = await TeraBlock.new(identity.address, rewardToken.address, startDateNew, cliffDuration, vestingDuration, tgePercentage, ether("3000"));
             TB = teraBlock.address;
             await rewardToken.transfer(TB, ether("3000"));
             let message = EthCrypto.hash.keccak256([
@@ -197,6 +216,16 @@ contract("TeraBlock", function (accounts) {
             );
             (await rewardToken.balanceOf(beneficiary1)).should.be.bignumber.equal(ether("555"));
             expectEvent(result, "RewardPaid", { investor: beneficiary1, amount: ether("555") })
+        });
+
+        it('shouldn return reward balance correctly', async () => {
+            actual = await teraBlock.getRewardBalance(
+                beneficiary1,
+                percentageLp,
+                percentageNative,
+                { from: beneficiary1 }
+            );
+            (actual).should.be.bignumber.equal(ether("555"));
         });
 
         it('should withdraw rewards after vesting duration correctly', async () => {
@@ -369,11 +398,11 @@ contract("TeraBlock", function (accounts) {
             );
         });
 
-        it('should withdraw any erc20 send accidentally to the contract', async () => {
+        it('should withdraw any bep20 send accidentally to the contract', async () => {
             amount = ether("1000");
             erc20 = await MockErc20.new(ether("3000"), { from: beneficiary1 });
             await erc20.transfer(TB, amount, { from: beneficiary1 });
-            await teraBlock.withdrawBEP20(erc20.address, amount);
+            await teraBlock.emergencyTokenWithdraw(erc20.address, amount);
             (await erc20.balanceOf(owner)).should.be.bignumber.equal(ether("1000"));
         });
 
@@ -382,7 +411,7 @@ contract("TeraBlock", function (accounts) {
             erc20 = await MockErc20.new(ether("3000"), { from: beneficiary1 });
             await erc20.transfer(TB, amount, { from: beneficiary1 });
             await expectRevert(
-                teraBlock.withdrawBEP20(erc20.address, ether("3000")),
+                teraBlock.emergencyTokenWithdraw(erc20.address, ether("3000")),
                 "Insufficient tokens balance"
             );
         });

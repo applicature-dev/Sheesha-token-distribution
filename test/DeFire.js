@@ -47,7 +47,7 @@ contract("DeFire", function (accounts) {
 
     beforeEach(async function () {
         rewardToken = await MockErc20.new(ether("3000"), { from: owner });
-        deFire = await DeFire.new(identity.address, rewardToken.address, startDate, ether("3000"));
+        deFire = await DeFire.new(identity.address, rewardToken.address, startDate, cliffDuration, vestingDuration, ether("3000"));
         DEFIRE = deFire.address;
         await rewardToken.transfer(DEFIRE, ether("3000"));
     });
@@ -62,11 +62,11 @@ contract("DeFire", function (accounts) {
         });
 
         it("should initialize vesting with correct cliff", async () => {
-            (await deFire.CLIFF_DURATION()).should.be.bignumber.equal(cliffDuration.toString());
+            (await deFire.cliffDuration()).should.be.bignumber.equal(cliffDuration.toString());
         });
 
         it("should initialize vesting with correct duration", async () => {
-            (await deFire.VESTING_DURATION()).should.be.bignumber.equal(vestingDuration.toString());
+            (await deFire.vestingDuration()).should.be.bignumber.equal(vestingDuration.toString());
         });
 
         it("should initialize vesting with correct first release date", async () => {
@@ -83,28 +83,40 @@ contract("DeFire", function (accounts) {
 
         it("shouldn\'t initialize vesting with empty signer address", async () => {
             await expectRevert(
-                DeFire.new(constants.ZERO_ADDRESS, rewardToken.address, startDate, ether("3000")),
+                DeFire.new(constants.ZERO_ADDRESS, rewardToken.address, startDate, cliffDuration, vestingDuration, ether("3000")),
                 "Invalid signer address"
             );
         });
 
         it("shouldn\'t initialize vesting with empty reward token address", async () => {
             await expectRevert(
-                DeFire.new(identity.address, constants.ZERO_ADDRESS, startDate, ether("3000")),
+                DeFire.new(identity.address, constants.ZERO_ADDRESS, startDate, cliffDuration, vestingDuration, ether("3000")),
                 "Invalid reward token address"
             );
         });
 
         it("shouldn\'t initialize vesting with empty tge timestamp", async () => {
             await expectRevert(
-                DeFire.new(identity.address, rewardToken.address, 0, ether("3000")),
+                DeFire.new(identity.address, rewardToken.address, 0, cliffDuration, vestingDuration, ether("3000")),
                 "TGE timestamp can't be 0"
+            );
+        });
+
+        it("shouldn\'t initialize vesting with empty cliff/vesting duration", async () => {
+            await expectRevert(
+                DeFire.new(identity.address, rewardToken.address, startDate, 0, vestingDuration, ether("9000")),
+                "The vesting and cliff duration cannot be 0"
+            );
+
+            await expectRevert(
+                DeFire.new(identity.address, rewardToken.address, startDate, cliffDuration, 0, ether("9000")),
+                "The vesting and cliff duration cannot be 0"
             );
         });
 
         it("shouldn\'t initialize vesting with zero token rewards", async () => {
             await expectRevert(
-                DeFire.new(identity.address, rewardToken.address, startDate, ether("0")),
+                DeFire.new(identity.address, rewardToken.address, startDate, cliffDuration, vestingDuration, ether("0")),
                 "The number of tokens for distribution cannot be 0"
             );
         });
@@ -166,7 +178,25 @@ contract("DeFire", function (accounts) {
             );
             (await rewardToken.balanceOf(beneficiary1)).should.be.bignumber.at.most(ether("250"));
             (await rewardToken.balanceOf(beneficiary1)).should.be.bignumber.at.least(ether("249.9999"));
-            expectEvent(result, "RewardPaid", { investor: beneficiary1 })
+            expectEvent(result, "RewardPaid", { investor: beneficiary1 });
+            actual = await deFire.getRewardBalance(
+                beneficiary1,
+                percentageLp,
+                percentageNative,
+                { from: beneficiary1 }
+            );
+            (actual).should.be.bignumber.at.most(ether("0"));
+        });
+
+        it('should return reward balance correctly', async () => {
+            actual = await deFire.getRewardBalance(
+                beneficiary1,
+                percentageLp,
+                percentageNative,
+                { from: beneficiary1 }
+            );
+            (actual).should.be.bignumber.at.most(ether("250"));
+            (actual).should.be.bignumber.at.least(ether("249.9999"));
         });
 
         it('should withdraw rewards after vesting duration correctly', async () => {
@@ -188,7 +218,7 @@ contract("DeFire", function (accounts) {
                 { from: beneficiary1 }
             );
             (await rewardToken.balanceOf(beneficiary1)).should.be.bignumber.equal(ether("500"));
-            expectEvent(result, "RewardPaid", { investor: beneficiary1, amount: ether("500") })
+            expectEvent(result, "RewardPaid", { investor: beneficiary1, amount: ether("500") });
         });
 
         it('shouldn\'t withdraw rewards with wrong signature', async () => {
@@ -367,7 +397,7 @@ contract("DeFire", function (accounts) {
             amount = ether("1000");
             erc20 = await MockErc20.new(ether("3000"), { from: beneficiary1 });
             await erc20.transfer(DEFIRE, amount, { from: beneficiary1 });
-            await deFire.withdrawERC20(erc20.address, amount);
+            await deFire.emergencyTokenWithdraw(erc20.address, amount);
             (await erc20.balanceOf(owner)).should.be.bignumber.equal(ether("1000"));
         });
 
@@ -376,7 +406,7 @@ contract("DeFire", function (accounts) {
             erc20 = await MockErc20.new(ether("3000"), { from: beneficiary1 });
             await erc20.transfer(DEFIRE, amount, { from: beneficiary1 });
             await expectRevert(
-                deFire.withdrawERC20(erc20.address, ether("3000")),
+                deFire.emergencyTokenWithdraw(erc20.address, ether("3000")),
                 "Insufficient tokens balance"
             );
         });
