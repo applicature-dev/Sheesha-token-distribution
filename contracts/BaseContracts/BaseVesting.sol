@@ -79,6 +79,7 @@ contract BaseVesting is Ownable {
         address addr,
         uint256 portionLP,
         uint256 portionNative,
+        uint deadline,
         uint8 v,
         bytes32 r,
         bytes32 s
@@ -89,7 +90,8 @@ contract BaseVesting is Ownable {
                 addr,
                 portionLP,
                 portionNative,
-                nonces[addr].current()
+                nonces[addr].current(),
+                deadline
             )
         );
 
@@ -111,6 +113,7 @@ contract BaseVesting is Ownable {
     function withdrawReward(
         uint256 portionLP,
         uint256 portionNative,
+        uint deadline,
         uint8 v,
         bytes32 r,
         bytes32 s
@@ -119,10 +122,12 @@ contract BaseVesting is Ownable {
             portionLP <= PERCENTAGE && portionNative <= PERCENTAGE,
             "The percentage cannot be greater than 100"
         );
+        require(deadline >= block.timestamp, 'Expired');
         bool access = isValidData(
             msg.sender,
             portionLP,
             portionNative,
+            deadline,
             v,
             r,
             s

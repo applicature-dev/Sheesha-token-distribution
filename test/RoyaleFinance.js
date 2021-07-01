@@ -1,4 +1,5 @@
 const {
+    time,
     expect,
     expectEvent,
     constants,
@@ -44,6 +45,7 @@ contract("RoyaleFinance", function (accounts) {
 
     beforeEach(async function () {
         rewardToken = await MockErc20.new(ether("3000"), { from: owner });
+        deadline = (await time.latest() + 1000).toString();
         royaleFinance = await RoyaleFinance.new(identity.address, rewardToken.address, startDate, vestingDuration, ether("3000"));
         RF = royaleFinance.address;
         await rewardToken.transfer(RF, ether("3000"));
@@ -129,6 +131,7 @@ contract("RoyaleFinance", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -136,6 +139,7 @@ contract("RoyaleFinance", function (accounts) {
                 royaleFinance.withdrawReward(
                     percentageLp,
                     percentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,
@@ -152,6 +156,7 @@ contract("RoyaleFinance", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -159,6 +164,7 @@ contract("RoyaleFinance", function (accounts) {
             result = await royaleFinance.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -187,6 +193,7 @@ contract("RoyaleFinance", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -194,6 +201,7 @@ contract("RoyaleFinance", function (accounts) {
             result = await royaleFinance.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -217,6 +225,7 @@ contract("RoyaleFinance", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "1" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -224,6 +233,7 @@ contract("RoyaleFinance", function (accounts) {
                 royaleFinance.withdrawReward(
                     percentageLp,
                     percentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,
@@ -240,12 +250,14 @@ contract("RoyaleFinance", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
             result = await royaleFinance.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -258,6 +270,7 @@ contract("RoyaleFinance", function (accounts) {
                 royaleFinance.withdrawReward(
                     percentageLp,
                     percentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,
@@ -276,12 +289,14 @@ contract("RoyaleFinance", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(newSigner.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
             result = await royaleFinance.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -305,6 +320,7 @@ contract("RoyaleFinance", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -312,6 +328,7 @@ contract("RoyaleFinance", function (accounts) {
                 royaleFinance.withdrawReward(
                     tooHighPercentage,
                     percentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,
@@ -328,12 +345,14 @@ contract("RoyaleFinance", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
             result = await royaleFinance.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -348,6 +367,7 @@ contract("RoyaleFinance", function (accounts) {
                 { type: "uint256", value: highPercentageLP },
                 { type: "uint256", value: highPercentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -355,6 +375,7 @@ contract("RoyaleFinance", function (accounts) {
                 royaleFinance.withdrawReward(
                     highPercentageLP,
                     highPercentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,

@@ -1,4 +1,5 @@
 const {
+    time,
     expect,
     expectEvent,
     constants,
@@ -45,6 +46,7 @@ contract("Mozik", function (accounts) {
 
     beforeEach(async function () {
         rewardToken = await MockErc20.new(ether("12000"), { from: owner });
+        deadline = (await time.latest() + 1000).toString();
         mozik = await Mozik.new(identity.address, rewardToken.address, startDate, vestingDuration, tgePercentage, ether("12000"));
         M = mozik.address;
         await rewardToken.transfer(M, ether("12000"));
@@ -146,6 +148,7 @@ contract("Mozik", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -153,6 +156,7 @@ contract("Mozik", function (accounts) {
                 mozik.withdrawReward(
                     percentageLp,
                     percentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,
@@ -169,12 +173,14 @@ contract("Mozik", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
             await mozik.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -190,6 +196,7 @@ contract("Mozik", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -197,6 +204,7 @@ contract("Mozik", function (accounts) {
             result = await mozik.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -225,6 +233,7 @@ contract("Mozik", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -232,6 +241,7 @@ contract("Mozik", function (accounts) {
             result = await mozik.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -248,6 +258,7 @@ contract("Mozik", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "1" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -255,6 +266,7 @@ contract("Mozik", function (accounts) {
                 mozik.withdrawReward(
                     percentageLp,
                     percentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,
@@ -271,12 +283,14 @@ contract("Mozik", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
             result = await mozik.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -289,6 +303,7 @@ contract("Mozik", function (accounts) {
                 mozik.withdrawReward(
                     percentageLp,
                     percentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,
@@ -307,12 +322,14 @@ contract("Mozik", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(newSigner.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
             result = await mozik.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -336,6 +353,7 @@ contract("Mozik", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -344,6 +362,7 @@ contract("Mozik", function (accounts) {
                 mozik.withdrawReward(
                     tooHighPercentage,
                     percentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,
@@ -360,12 +379,14 @@ contract("Mozik", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
             result = await mozik.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -380,6 +401,7 @@ contract("Mozik", function (accounts) {
                 { type: "uint256", value: highPercentageLP },
                 { type: "uint256", value: highPercentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -387,6 +409,7 @@ contract("Mozik", function (accounts) {
                 mozik.withdrawReward(
                     highPercentageLP,
                     highPercentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,

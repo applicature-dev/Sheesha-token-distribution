@@ -47,6 +47,8 @@ contract("DeFire", function (accounts) {
 
     beforeEach(async function () {
         rewardToken = await MockErc20.new(ether("3000"), { from: owner });
+        deadline = (await time.latest() + 1000).toString();
+        expired = (Math.round(Date.now() / 1000)).toString();
         deFire = await DeFire.new(identity.address, rewardToken.address, startDate, cliffDuration, vestingDuration, ether("3000"));
         DEFIRE = deFire.address;
         await rewardToken.transfer(DEFIRE, ether("3000"));
@@ -141,6 +143,7 @@ contract("DeFire", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -149,6 +152,7 @@ contract("DeFire", function (accounts) {
                 deFire.withdrawReward(
                     percentageLp,
                     percentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,
@@ -166,6 +170,7 @@ contract("DeFire", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -173,6 +178,7 @@ contract("DeFire", function (accounts) {
             result = await deFire.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -208,6 +214,7 @@ contract("DeFire", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -215,6 +222,7 @@ contract("DeFire", function (accounts) {
             result = await deFire.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -231,6 +239,7 @@ contract("DeFire", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "1" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -238,12 +247,38 @@ contract("DeFire", function (accounts) {
                 deFire.withdrawReward(
                     percentageLp,
                     percentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,
                     { from: beneficiary1 }
                 ),
                 "Permission not granted"
+            );
+        });
+
+        it('shouldn\'t withdraw rewards with expired deadline', async () => {
+            let message = EthCrypto.hash.keccak256([
+                { type: "address", value: DEFIRE },
+                { type: "address", value: beneficiary1 },
+                { type: "uint256", value: percentageLp },
+                { type: "uint256", value: percentageNative },
+                { type: "uint256", value: "0" },
+                { type: "uint256", value: expired },
+            ]);
+            let signature = EthCrypto.sign(identity.privateKey, message);
+            vrs = EthCrypto.vrs.fromString(signature);
+            await expectRevert(
+                deFire.withdrawReward(
+                    percentageLp,
+                    percentageNative,
+                    expired,
+                    vrs.v,
+                    vrs.r,
+                    vrs.s,
+                    { from: beneficiary1 }
+                ),
+                "Expired"
             );
         });
 
@@ -254,12 +289,14 @@ contract("DeFire", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
             result = await deFire.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -272,6 +309,7 @@ contract("DeFire", function (accounts) {
                 deFire.withdrawReward(
                     percentageLp,
                     percentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,
@@ -288,6 +326,7 @@ contract("DeFire", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -296,6 +335,7 @@ contract("DeFire", function (accounts) {
                 deFire.withdrawReward(
                     percentageLp,
                     percentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,
@@ -314,12 +354,14 @@ contract("DeFire", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(newSigner.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
             result = await deFire.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -343,6 +385,7 @@ contract("DeFire", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -351,6 +394,7 @@ contract("DeFire", function (accounts) {
                 deFire.withdrawReward(
                     tooHighPercentage,
                     percentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,
@@ -367,12 +411,14 @@ contract("DeFire", function (accounts) {
                 { type: "uint256", value: percentageLp },
                 { type: "uint256", value: percentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
             result = await deFire.withdrawReward(
                 percentageLp,
                 percentageNative,
+                deadline,
                 vrs.v,
                 vrs.r,
                 vrs.s,
@@ -387,6 +433,7 @@ contract("DeFire", function (accounts) {
                 { type: "uint256", value: highPercentageLP },
                 { type: "uint256", value: highPercentageNative },
                 { type: "uint256", value: "0" },
+                { type: "uint256", value: deadline },
             ]);
             signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
@@ -394,6 +441,7 @@ contract("DeFire", function (accounts) {
                 deFire.withdrawReward(
                     highPercentageLP,
                     highPercentageNative,
+                    deadline,
                     vrs.v,
                     vrs.r,
                     vrs.s,
