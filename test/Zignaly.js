@@ -19,10 +19,9 @@ const identity = EthCrypto.createIdentity();
 
 contract("Zignaly", function (accounts) {
     [owner, beneficiary1, beneficiary2, beneficiary3, beneficiary4] = accounts;
-
-    const startDate = Math.round(Date.now() / 1000);
     const aDay = 86400;
     const aMonth = aDay * 30;
+    const startDate = Math.round((Date.now() / 1000) + aDay);
     const vestingDuration = aMonth * 3;
     const vestingTime = startDate + vestingDuration;
     const percentage = ether("100");
@@ -70,7 +69,7 @@ contract("Zignaly", function (accounts) {
         it("shouldn\'t initialize vesting with empty tge timestamp", async () => {
             await expectRevert(
                 Zignaly.new(identity.address, rewardToken.address, 0, vestingDuration, ether("3000")),
-                "TGE timestamp can't be 0"
+                "TGE timestamp can't be less than block timestamp"
             );
         });
 

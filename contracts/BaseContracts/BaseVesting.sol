@@ -5,9 +5,11 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 contract BaseVesting is Ownable {
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
     using Counters for Counters.Counter;
 
     struct Investor {
@@ -15,18 +17,18 @@ contract BaseVesting is Ownable {
         uint256 timeRewardPaid;
     }
 
-    uint256 public constant PERIOD = 1 days;
-    uint256 public constant PERCENTAGE = 1e20;
+    uint256 constant PERIOD = 1 days;
+    uint256 constant PERCENTAGE = 1e20;
 
-    IERC20 public token;
-    uint256 public everyDayReleasePercentage;
-    uint256 public periods;
-    uint256 public startDate;
-    uint256 public totalAllocatedAmount;
-    uint256 public tokensForLP;
-    uint256 public tokensForNative;
-    uint256 public vestingDuration;
+    IERC20  public immutable token;
+    uint256 public immutable startDate;
+    uint256 public immutable totalAllocatedAmount;
+    uint256 public immutable vestingDuration;
+    uint256 public immutable tokensForLP;
+    uint256 public immutable tokensForNative;
+
     uint256 public vestingTimeEnd;
+    uint256 public everyDayReleasePercentage;
 
     event RewardPaid(address indexed investor, uint256 amount);
 
@@ -34,8 +36,34 @@ contract BaseVesting is Ownable {
     mapping(address => bool) public trustedSigner;
     mapping(address => Investor) public investorInfo;
 
-    constructor(address signer_) {
+    constructor(
+        address signer_,
+        address token_,
+        uint256 startDate_,
+        uint256 vestingDuration_,
+        uint256 totalAllocatedAmount_
+    ) {
         require(signer_ != address(0), "Invalid signer address");
+        require(token_ != address(0), "Invalid reward token address");
+        require(
+            startDate_ > block.timestamp,
+            "TGE timestamp can't be less than block timestamp"
+        );
+        require(vestingDuration_ > 0, "The vesting duration cannot be 0");
+        require(
+            totalAllocatedAmount_ > 0,
+            "The number of tokens for distribution cannot be 0"
+        );
+        token = IERC20(token_);
+        startDate = startDate_;
+        vestingDuration = vestingDuration_;
+        vestingTimeEnd = startDate_.add(vestingDuration_);
+        uint256 periods = vestingDuration_.div(PERIOD);
+        everyDayReleasePercentage = PERCENTAGE.div(periods);
+        totalAllocatedAmount = totalAllocatedAmount_;
+        uint256 nativeTokens = totalAllocatedAmount_.div(3);
+        tokensForNative = nativeTokens;
+        tokensForLP = totalAllocatedAmount_.sub(nativeTokens);
         trustedSigner[signer_] = true;
     }
 
@@ -60,12 +88,13 @@ contract BaseVesting is Ownable {
         external
         onlyOwner
     {
+        require(block.timestamp > vestingTimeEnd, "Vesting is still running");
         IERC20 tokenAddress = IERC20(tokenAddress_);
         require(
             tokenAddress.balanceOf(address(this)) >= amount,
             "Insufficient tokens balance"
         );
-        tokenAddress.transfer(msg.sender, amount);
+        tokenAddress.safeTransfer(msg.sender, amount);
     }
 
     /**
@@ -79,11 +108,17 @@ contract BaseVesting is Ownable {
         address addr,
         uint256 portionLP,
         uint256 portionNative,
-        uint deadline,
+        uint256 deadline,
         uint8 v,
         bytes32 r,
         bytes32 s
     ) public returns (bool) {
+        require(
+            uint256(s) <=
+                0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0,
+            "ECDSA: invalid signature 's' value"
+        );
+        require(v == 27 || v == 28, "ECDSA: invalid signature 'v' value");
         bytes32 message = keccak256(
             abi.encodePacked(
                 address(this),
@@ -113,7 +148,7 @@ contract BaseVesting is Ownable {
     function withdrawReward(
         uint256 portionLP,
         uint256 portionNative,
-        uint deadline,
+        uint256 deadline,
         uint8 v,
         bytes32 r,
         bytes32 s
@@ -122,7 +157,7 @@ contract BaseVesting is Ownable {
             portionLP <= PERCENTAGE && portionNative <= PERCENTAGE,
             "The percentage cannot be greater than 100"
         );
-        require(deadline >= block.timestamp, 'Expired');
+        require(deadline >= block.timestamp, "Expired");
         bool access = isValidData(
             msg.sender,
             portionLP,
@@ -138,15 +173,15 @@ contract BaseVesting is Ownable {
 
     /**
      * @dev Returns current available rewards for investor
-     * @param percenageLP investor percenage for LP stake
+     * @param percentageLP investor percenage for LP stake
      * @param percentageNative investor percentage for Native stake
      */
     function getRewardBalance(
         address beneficiary,
-        uint256 percenageLP,
+        uint256 percentageLP,
         uint256 percentageNative
     ) public view returns (uint256 amount) {
-        uint256 reward = _getRewardBalance(percenageLP, percentageNative);
+        uint256 reward = _getRewardBalance(percentageLP, percentageNative);
         Investor storage investor = investorInfo[beneficiary];
         uint256 balance = token.balanceOf(address(this));
         if (reward <= investor.paidAmount) {
@@ -154,7 +189,7 @@ contract BaseVesting is Ownable {
         } else {
             uint256 amountToPay = reward.sub(investor.paidAmount);
             if (amountToPay >= balance) {
-                return 0;
+                return balance;
             }
             return amountToPay;
         }
@@ -162,18 +197,20 @@ contract BaseVesting is Ownable {
 
     function _withdrawReward(
         address beneficiary,
-        uint256 percenageLP,
+        uint256 percentageLP,
         uint256 percentageNative
     ) private {
-        uint256 reward = _getRewardBalance(percenageLP, percentageNative);
+        uint256 reward = _getRewardBalance(percentageLP, percentageNative);
         Investor storage investor = investorInfo[beneficiary];
         uint256 balance = token.balanceOf(address(this));
         require(reward > investor.paidAmount, "No rewards available");
         uint256 amountToPay = reward.sub(investor.paidAmount);
-        require(amountToPay <= balance, "The rewards are over");
+        if (amountToPay >= balance) {
+            amountToPay = balance;
+        }
         investor.paidAmount = reward;
         investor.timeRewardPaid = block.timestamp;
-        token.transfer(beneficiary, amountToPay);
+        token.safeTransfer(beneficiary, amountToPay);
         emit RewardPaid(beneficiary, amountToPay);
     }
 
@@ -205,11 +242,7 @@ contract BaseVesting is Ownable {
         returns (uint256)
     {
         uint256 currentTimeStamp = block.timestamp;
-        if (currentTimeStamp < startDate) {
-            return 0;
-        } else if (
-            currentTimeStamp >= startDate && currentTimeStamp < vestingTimeEnd
-        ) {
+        if (currentTimeStamp < vestingTimeEnd) {
             uint256 noOfDays = currentTimeStamp.sub(startDate).div(PERIOD);
             uint256 currentUnlockedPercentage = noOfDays.mul(
                 everyDayReleasePercentage

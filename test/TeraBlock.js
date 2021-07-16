@@ -24,13 +24,13 @@ const identity = EthCrypto.createIdentity();
 contract("TeraBlock", function (accounts) {
     [owner, beneficiary1, beneficiary2, beneficiary3, beneficiary4] = accounts;
 
-    const startDate = Math.round(Date.now() / 1000);
     const aDay = 86400;
     const aMonth = aDay * 30;
     const tgePercentage = ether("10");
     const remeaningPercentage = ether("90");
     const cliffDuration = aMonth * 1;
     const vestingDuration = aMonth * 10;
+    const startDate = Math.round((Date.now() / 1000) + aDay);
     const firstRelease = startDate + cliffDuration;
     const vestingTime = firstRelease + vestingDuration;
     const periods = 300;
@@ -41,12 +41,9 @@ contract("TeraBlock", function (accounts) {
     const highPercentageNative = "95000000000000000000";
     const highPercentageLP = "85000000000000000000";
 
-    before(async function () {
+    beforeEach(async function () {
         let snapshot = await timeMachine.takeSnapshot();
         snapshotId = snapshot['result'];
-    });
-
-    beforeEach(async function () {
         rewardToken = await MockErc20.new(ether("9000"), { from: owner });
         deadline = (await time.latest() + 1000).toString();
         teraBlock = await TeraBlock.new(identity.address, rewardToken.address, startDate, cliffDuration, vestingDuration, tgePercentage, ether("9000"));
@@ -54,7 +51,7 @@ contract("TeraBlock", function (accounts) {
         await rewardToken.transfer(TB, ether("9000"));
     });
 
-    after(async function () {
+    afterEach(async function () {
         await timeMachine.revertToSnapshot(snapshotId);
     });
 
@@ -83,10 +80,6 @@ contract("TeraBlock", function (accounts) {
             (await teraBlock.tgePercentage()).should.be.bignumber.equal(tgePercentage);
         });
 
-        it("should initialize vesting with correct remaining percentage", async () => {
-            (await teraBlock.remainingPercentage()).should.be.bignumber.equal(ether("90"));
-        });
-
         it("should initialize vesting with correct monthly percentage", async () => {
             (await teraBlock.everyDayReleasePercentage()).should.be.bignumber.equal(everyDayReleasePercentage.toString());
         });
@@ -108,26 +101,21 @@ contract("TeraBlock", function (accounts) {
         it("shouldn\'t initialize vesting with empty tge timestamp", async () => {
             await expectRevert(
                 TeraBlock.new(identity.address, rewardToken.address, 0, cliffDuration, vestingDuration, tgePercentage, ether("9000")),
-                "TGE timestamp can't be 0"
+                "TGE timestamp can't be less than block timestamp"
             );
         });
 
         it("shouldn\'t initialize vesting with empty cliff/vesting duration", async () => {
             await expectRevert(
-                TeraBlock.new(identity.address, rewardToken.address, startDate, 0, vestingDuration, tgePercentage, ether("9000")),
-                "The vesting and cliff duration cannot be 0"
-            );
-
-            await expectRevert(
                 TeraBlock.new(identity.address, rewardToken.address, startDate, cliffDuration, 0, tgePercentage, ether("9000")),
-                "The vesting and cliff duration cannot be 0"
+                "The vesting duration cannot be 0"
             );
         });
 
-        it("shouldn\'t initialize vesting with empty tge tpercentage", async () => {
+        it("shouldn\'t initialize vesting with empty the tgercentage greater than 100", async () => {
             await expectRevert(
-                TeraBlock.new(identity.address, rewardToken.address, startDate, cliffDuration, vestingDuration, ether("0"), ether("9000")),
-                "The tgePercentage cannot be 0"
+                TeraBlock.new(identity.address, rewardToken.address, startDate, cliffDuration, vestingDuration, ether("110"), ether("9000")),
+                "The tgePercentage cannot be greater than 100"
             );
         });
 
@@ -149,36 +137,6 @@ contract("TeraBlock", function (accounts) {
             (await teraBlock.totalAllocatedAmount()).should.be.bignumber.equal(totalAllocatedAmount);
             (await teraBlock.tokensForNative()).should.be.bignumber.equal(tokensForNative);
             (await teraBlock.tokensForLP()).should.be.bignumber.equal(tokensForLP);
-        });
-
-        it('shouldn\'t withdraw rewards before start date', async () => {
-            startDateNew = startDate + vestingDuration;
-            rewardToken = await MockErc20.new(ether("3000"), { from: owner });
-            teraBlock = await TeraBlock.new(identity.address, rewardToken.address, startDateNew, cliffDuration, vestingDuration, tgePercentage, ether("3000"));
-            TB = teraBlock.address;
-            await rewardToken.transfer(TB, ether("3000"));
-            let message = EthCrypto.hash.keccak256([
-                { type: "address", value: TB },
-                { type: "address", value: beneficiary1 },
-                { type: "uint256", value: percentageLp },
-                { type: "uint256", value: percentageNative },
-                { type: "uint256", value: "0" },
-                { type: "uint256", value: deadline },
-            ]);
-            let signature = EthCrypto.sign(identity.privateKey, message);
-            vrs = EthCrypto.vrs.fromString(signature);
-            await expectRevert(
-                teraBlock.withdrawReward(
-                    percentageLp,
-                    percentageNative,
-                    deadline,
-                    vrs.v,
-                    vrs.r,
-                    vrs.s,
-                    { from: beneficiary1 }
-                ),
-                "No rewards available"
-            );
         });
 
         it('should withdraw rewards before cliff', async () => {
@@ -215,7 +173,7 @@ contract("TeraBlock", function (accounts) {
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
-            await timeMachine.advanceTime(aMonth * 4);
+            await timeMachine.advanceTime(aMonth * 4 + aDay);
             result = await teraBlock.withdrawReward(
                 percentageLp,
                 percentageNative,
@@ -230,6 +188,7 @@ contract("TeraBlock", function (accounts) {
         });
 
         it('shouldn return reward balance correctly', async () => {
+            await time.increase(aMonth * 4 + aDay);
             actual = await teraBlock.getRewardBalance(
                 beneficiary1,
                 percentageLp,
@@ -250,7 +209,7 @@ contract("TeraBlock", function (accounts) {
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
-            await timeMachine.advanceTime(aMonth * 11);
+            await timeMachine.advanceTime(aMonth * 15);
             result = await teraBlock.withdrawReward(
                 percentageLp,
                 percentageNative,
@@ -275,6 +234,7 @@ contract("TeraBlock", function (accounts) {
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
+            await timeMachine.advanceTime(aMonth * 15);
             await expectRevert(
                 teraBlock.withdrawReward(
                     percentageLp,
@@ -300,6 +260,7 @@ contract("TeraBlock", function (accounts) {
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
+            await timeMachine.advanceTime(aMonth * 15);
             result = await teraBlock.withdrawReward(
                 percentageLp,
                 percentageNative,
@@ -339,6 +300,7 @@ contract("TeraBlock", function (accounts) {
             ]);
             let signature = EthCrypto.sign(newSigner.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
+            await timeMachine.advanceTime(aMonth * 15);
             result = await teraBlock.withdrawReward(
                 percentageLp,
                 percentageNative,
@@ -370,6 +332,7 @@ contract("TeraBlock", function (accounts) {
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
+            await timeMachine.advanceTime(aMonth * 15);
             await expectRevert(
                 teraBlock.withdrawReward(
                     tooHighPercentage,
@@ -395,6 +358,7 @@ contract("TeraBlock", function (accounts) {
             ]);
             let signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
+            await timeMachine.advanceTime(aMonth * 15);
             result = await teraBlock.withdrawReward(
                 percentageLp,
                 percentageNative,
@@ -417,21 +381,23 @@ contract("TeraBlock", function (accounts) {
             ]);
             signature = EthCrypto.sign(identity.privateKey, message);
             vrs = EthCrypto.vrs.fromString(signature);
-            await expectRevert(
-                teraBlock.withdrawReward(
-                    highPercentageLP,
-                    highPercentageNative,
-                    deadline,
-                    vrs.v,
-                    vrs.r,
-                    vrs.s,
-                    { from: beneficiary2 }
-                ),
-                "The rewards are over"
+            expected = await rewardToken.balanceOf(TB);
+            result = await teraBlock.withdrawReward(
+                highPercentageLP,
+                highPercentageNative,
+                deadline,
+                vrs.v,
+                vrs.r,
+                vrs.s,
+                { from: beneficiary2 }
             );
+            expectEvent(result, "RewardPaid", { investor: beneficiary2, amount: expected });
+            (await rewardToken.balanceOf(TB)).should.be.bignumber.equal(ether("0"));
+
         });
 
         it('should withdraw any bep20 send accidentally to the contract', async () => {
+            await timeMachine.advanceTime(aMonth * 15);
             amount = ether("1000");
             erc20 = await MockErc20.new(ether("3000"), { from: beneficiary1 });
             await erc20.transfer(TB, amount, { from: beneficiary1 });
@@ -440,6 +406,7 @@ contract("TeraBlock", function (accounts) {
         });
 
         it('shouldn\'t withdraw tokens if insufficient tokens balance in contract', async () => {
+            await timeMachine.advanceTime(aMonth * 15);
             amount = ether("1000");
             erc20 = await MockErc20.new(ether("3000"), { from: beneficiary1 });
             await erc20.transfer(TB, amount, { from: beneficiary1 });
